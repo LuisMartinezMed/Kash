@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { View, Text, StyleSheet, ScrollView, Switch, Alert, Platform } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Switch, Alert, Platform, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useAppData } from '../../src/context/AppDataContext';
@@ -72,14 +72,9 @@ export default function AlertasScreen() {
             <Text style={styles.permTitle}>Notificaciones del sistema</Text>
             <Text style={styles.permDesc}>Recibirás alertas X días antes de tu pago y el día del corte.</Text>
           </View>
-          <Text
-            onPress={requestPerm}
-            style={styles.permBtn}
-            testID="request-permissions"
-            suppressHighlighting
-          >
-            Activar
-          </Text>
+          <TouchableOpacity onPress={requestPerm} style={styles.permBtnBox} testID="request-permissions">
+            <Text style={styles.permBtnText}>Activar</Text>
+          </TouchableOpacity>
         </View>
 
         {items.length === 0 && (
@@ -163,11 +158,11 @@ const styles = StyleSheet.create({
   permIcon: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
   permTitle: { color: colors.textPrimary, fontSize: 13, fontWeight: '700' },
   permDesc: { color: colors.textTertiary, fontSize: 11, marginTop: 2 },
-  permBtn: {
-    color: '#000', fontWeight: '700', fontSize: 12,
+  permBtnBox: {
     backgroundColor: colors.success, paddingHorizontal: 14, paddingVertical: 8,
-    borderRadius: radii.pill, overflow: 'hidden',
+    borderRadius: radii.pill, minHeight: 36, minWidth: 64, alignItems: 'center', justifyContent: 'center',
   },
+  permBtnText: { color: '#000', fontWeight: '700', fontSize: 12 },
   alertCard: {
     backgroundColor: colors.surface, padding: spacing.md,
     borderRadius: radii.lg, borderWidth: 1, borderColor: colors.borderSubtle, gap: spacing.sm,

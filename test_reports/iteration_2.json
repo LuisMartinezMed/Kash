@@ -1,0 +1,44 @@
+{
+  "summary": "RETEST passed end-to-end. SQLite Error 21 fix (split CREATE TABLEs + initPromise) resolved the red overlay; dashboard now loads cleanly. Created card, MSI, income and quick-expense via category chip; alert switch toggles; dashboard reflects combined limit ($50,000), MSI debt ($24,000) and expenses ($250) correctly; persistence verified via reload. Found and fixed an unrelated CRITICAL: alertas.tsx used <TouchableOpacity> without importing it, which threw 'TouchableOpacity is not defined' red-screen the moment the Alertas tab was opened.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "(tabs)/alertas.tsx",
+        "issue": "FIXED by testing agent. <TouchableOpacity> was used (request-permissions button) but missing from the react-native import. Caused red overlay 'TouchableOpacity is not defined' on entering Alertas tab. Added TouchableOpacity to the import.",
+        "testID": "request-permissions",
+        "priority": "CRITICAL"
+      }
+    ],
+    "integration_issues": [
+      {
+        "flow": "Tab navigation (Expo Router web)",
+        "issue": "tabBarTestID prop on Tabs.Screen does NOT propagate to web DOM (Expo Router renders tabs as <a href=\"/...\">). Selectors like [data-testid=\"tab-tarjetas\"] do not exist on web. Recommend wrapping tabBarButton with a custom component that accepts testID, or document href-based selectors for web tests. Functionality works fine via href, no user-visible bug.",
+        "affected_testIDs": ["tab-dashboard","tab-tarjetas","tab-msi","tab-movimientos","tab-alertas"]
+      }
+    ],
+    "design_issues": [
+      {"screen": "Global", "issues": ["Console warnings: 'props.pointerEvents is deprecated. Use style.pointerEvents' — non-blocking, comes from ModalSheet/FormControls. Should migrate to style.pointerEvents."]}
+    ],
+    "react_native_issues": []
+  },
+  "test_report_links": ["/app/test_reports/iteration_2.json"],
+  "action_items": [
+    "(Optional) Replace tabBarTestID with a custom tabBarButton that forwards testID to the underlying anchor so the requested tab-* testIDs work on web. Functionality is unaffected.",
+    "Clean up 'props.pointerEvents is deprecated' warnings in ModalSheet/FormControls.",
+    "Verified by testing agent: no further action needed for the SQLite issue or the alertas TouchableOpacity import."
+  ],
+  "critical_code_review_comments": [
+    "src/db/database.ts: per-statement execAsync + initPromise pattern is correct and resolves the sqlite-wasm Error 21.",
+    "(tabs)/alertas.tsx: missing TouchableOpacity import (now fixed) — recommend enabling stricter TS/ESLint rules to catch undefined identifiers in JSX (e.g., 'react/jsx-no-undef')."
+  ],
+  "updated_files": [
+    "/app/frontend/app/(tabs)/alertas.tsx (added TouchableOpacity to react-native import)"
+  ],
+  "success_rate": {"backend": "N/A (skipped per request)", "frontend": "100% (10/10 flows verified: no overlay, tab nav, create card/MSI/income/quick-expense, alert switch toggle, dashboard values correct, persistence after reload)"},
+  "seed_data_creation": "Created 1 card (BBVA Oro, $50k MXN limit), 1 MSI (iPhone 15, $24k/12m), 1 income (Nomina $30k), 1 expense ($250 Comida). All persisted across reload.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Preview URL: https://f7b8ac23-d443-4669-a391-812951fc4cd4.preview.emergentagent.com . Wait ~10s after navigation for sqlite-wasm + bundle. Tab testIDs (tab-tarjetas etc.) are NOT in the web DOM — use a[href='/tarjetas'], a[href='/msi'], a[href='/movimientos'], a[href='/alertas'], a[href='/']. All other testIDs work as expected with [data-testid=\"...\"]. Forms are unstyled inputs (page.fill works directly). Playwright contexts are isolated, so to test SQLite persistence you must reload within the SAME browser session (page.reload + wait 8-10s).",
+  "rca_of_issue": "Two issues confirmed in this iteration: (1) Original RCA — sqlite-wasm SQLITE_MISUSE caused by multi-statement execAsync — resolved by E1 by splitting schema into individual CREATE TABLEs and adding initPromise to serialize concurrent getDb() calls. Verified: no Error 21 on initial load or after reload. (2) New issue — alertas.tsx referenced TouchableOpacity without importing it (Activar permission button). Reproduction: navigate to /alertas tab → Expo red overlay 'TouchableOpacity is not defined' at app/(tabs)/alertas.tsx:75:12. Mitigation applied by testing agent: added TouchableOpacity to the existing 'react-native' import line. Verified: alertas screen now renders, switch (alert-switch-paid-{id}) toggles correctly, no overlay."
+}
