@@ -1,0 +1,56 @@
+{
+  "summary": "Frontend (Expo web) testing of CardFlow finance app. App fails to initialize due to a CRITICAL expo-sqlite web error (SQLITE_MISUSE / Error code 21) occurring during DB schema setup, which short-circuits the entire AppDataContext refresh and renders an Expo red-screen overlay on top of the UI. Dashboard shell renders (testID dashboard-screen, dashboard-combined-limit, dashboard-msi-debt, 4 pie legends visible) but all values are $0.00 and tabs are intercepted by the error overlay so no further interactive flow (create card / MSI / income / expense / category / alert switch / persistence) could be exercised end-to-end on web.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "src/db/database.ts (getDb -> initSchema/seedDefaultCategories)",
+        "issue": "Uncaught Error: 'Error code 21: bad parameter or other API misuse' from expo-sqlite/web/WorkerChannel.ts:64. Triggered on first DB init on web. AppDataProvider.refresh() then never resolves successfully; loading flag stays effectively in error state and Expo renders a red-screen overlay over the entire app. Removing 'PRAGMA journal_mode = WAL' on web (already applied as a defensive fix) did NOT resolve it, so the misuse is in another statement (likely the multi-statement execAsync CREATE TABLE block or the seed INSERT OR IGNORE on web sqlite-wasm).",
+        "testID": "dashboard-screen",
+        "priority": "CRITICAL"
+      },
+      {
+        "component": "(tabs)/alertas.tsx > permBtn",
+        "issue": "'Activar' button is implemented as a Text with onPress; should be wrapped in TouchableOpacity/Pressable for proper 44x44 touch target and accessibility on mobile.",
+        "testID": "request-permissions",
+        "priority": "LOW"
+      }
+    ],
+    "integration_issues": [
+      {
+        "flow": "App bootstrap -> SQLite init -> AppDataContext.refresh()",
+        "issue": "DB init throws Error 21; UI cannot reach any interactive flow on web because the Expo error overlay blocks all clicks (tab buttons report not visible/clickable).",
+        "affected_testIDs": ["tab-tarjetas","tab-msi","tab-movimientos","tab-alertas","add-card-button","add-msi-button","add-income-button","add-expense-button","add-category-button","alert-switch-paid-*"]
+      }
+    ],
+    "design_issues": [
+      {"screen": "Dashboard", "issues": ["Hero KPIs render correctly (Resumen title, mes en mayúsculas, combined limit, available today, end-of-month projection, 4-color pie legend) but show $0 due to DB failure — could not validate visual updates with real data."]}
+    ],
+    "react_native_issues": [
+      {"component": "alertas.tsx 'Activar' permission button", "issue": "Text+onPress instead of TouchableOpacity"},
+      {"component": "Many forms", "issue": "props.pointerEvents deprecation warnings in console (use style.pointerEvents) — non-blocking but should be cleaned up"}
+    ]
+  },
+  "test_report_links": [],
+  "action_items": [
+    "FIX (CRITICAL) the expo-sqlite Error 21 on web. Recommended steps: (1) Split the multi-statement execAsync schema into individual execAsync('CREATE TABLE IF NOT EXISTS ...') calls (sqlite-wasm web is stricter about batched statements); (2) Wrap initSchema/seedDefaultCategories in try/catch and log the underlying SQL to surface the failing statement; (3) Verify INSERT OR IGNORE for default categories works on web (consider getFirstAsync+runAsync per row guard already used). Also surface the error in AppDataContext catch block instead of swallowing in finally so user sees a proper retry UI rather than Expo's red overlay.",
+    "After SQLite fix, re-run the full test suite (steps 1–10 in the request). The previous test attempt achieved only step 1 (dashboard shell) before being blocked.",
+    "Consider replacing 'Activar' Text+onPress in alertas.tsx with a TouchableOpacity for proper hit area on mobile.",
+    "Clean up 'props.pointerEvents is deprecated' warnings (likely from ModalSheet/FormControls)."
+  ],
+  "critical_code_review_comments": [
+    "src/db/database.ts: PRAGMA journal_mode = WAL is unsupported on expo-sqlite web (sqlite-wasm). Now guarded with Platform.OS check (applied).",
+    "src/db/database.ts: Multi-statement execAsync schema may cause Error 21 in sqlite-wasm; recommend per-statement execAsync calls for portability.",
+    "src/context/AppDataContext.tsx: refresh() has no try/catch; a failure leaves UI in indeterminate state. Add error state + retry UI.",
+    "expo-sqlite installed version is 16.0.10 (matches package.json); the doctor warning about ~16.0.10 is benign."
+  ],
+  "updated_files": [
+    "/app/frontend/src/db/database.ts (added Platform guard for WAL pragma + try/catch around pragmas — defensive only; did NOT resolve Error 21)"
+  ],
+  "success_rate": {"backend": "N/A (skipped per request)", "frontend": "~10% (1/10 flows verified — dashboard shell only)"},
+  "seed_data_creation": "None — DB initialization fails before any seed data could be created.",
+  "retest_needed": true,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Public preview: https://cardflow-dash.preview.emergentagent.com . Wait ~7s after navigation for Expo bundle. Open DevTools and watch for 'Error code 21: bad parameter or other API misuse' which surfaces an Expo red-screen overlay covering the whole app and intercepting all clicks. Tabs have testIDs tab-dashboard/tab-tarjetas/tab-msi/tab-movimientos/tab-alertas. Forms use direct selectors like [data-testid=\"input-apodo\"] (page.fill works directly without nested input). Persistence test requires page.reload + 4–7s wait. Once the SQLite Error 21 is fixed by E1, run the full 10-step flow described in the request.",
+  "rca_of_issue": "ROOT CAUSE: expo-sqlite 16.0.10 web worker (sqlite-wasm) throws SQLITE_MISUSE (code 21) during the initSchema/seedDefaultCategories phase of getDb(). Reproduction: (1) Open the public preview URL on a desktop browser viewport 390x844; (2) Wait for bundle to load; (3) Observe Expo red-screen overlay 'Uncaught Error — Error code 21: bad parameter or other API misuse' with stack node_modules/expo-sqlite/web/WorkerChannel.ts:64:25 -> WorkerMessageHandler -> Worker.addEventListener:argument_1 (SQLiteModule.ts:30). Likely cause: multi-statement execAsync block in initSchema (PRAGMA + multiple CREATE TABLE IF NOT EXISTS) is not handled atomically by sqlite-wasm worker, OR the 'PRAGMA foreign_keys = ON' executed prior to the CREATE TABLEs interacts badly with FOREIGN KEY refs. Mitigation tried: gating WAL pragma to native only — did not resolve. Recommended mitigation: split execAsync into per-statement execAsync calls, wrap each in try/catch, log failing SQL, and add a graceful error state in AppDataContext so the user sees a retry UI rather than Expo's dev red-screen."
+}
