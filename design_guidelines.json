@@ -1,0 +1,155 @@
+{
+  "theme": "dark",
+  "archetype": "Archetype 5 (Jewel & Luxury) + Swiss Precision for Data",
+  "design_philosophy": "A deeply moody, tactical, and ultra-legible finance tracker. High contrast for numbers, subtle structural borders, and highly intentional use of color indicating financial health. Avoids generic fintech purple/teal gradients. Relies on pure blacks, grays, and specific semantic colors.",
+  "colors": {
+    "background": {
+      "main": "#0A0A0C",
+      "surface": "#141417",
+      "surface_elevated": "#1C1C21",
+      "overlay": "rgba(0,0,0,0.7)"
+    },
+    "border": {
+      "subtle": "rgba(255,255,255,0.08)",
+      "focus": "rgba(255,255,255,0.2)"
+    },
+    "text": {
+      "primary": "#FFFFFF",
+      "secondary": "#A1A1AA",
+      "tertiary": "#71717A",
+      "inverse": "#000000",
+      "success": "#4ADE80",
+      "danger": "#F87171"
+    },
+    "accent": {
+      "primary": "#22C55E",
+      "warning": "#EF4444",
+      "info": "#3B82F6"
+    },
+    "pie_chart": {
+      "saldo_disponible_hoy": "#22C55E",
+      "proyeccion_positiva": "rgba(34, 197, 94, 0.4)",
+      "proyeccion_negativa": "rgba(239, 68, 68, 0.4)",
+      "gastos_realizados": "#4B5563"
+    }
+  },
+  "typography": {
+    "font_family": {
+      "heading": "Plus Jakarta Sans",
+      "body": "DM Sans",
+      "monospace": "JetBrains Mono"
+    },
+    "scale": {
+      "h1_balance": { "size": 40, "weight": "800", "tracking": -1.5, "line_height": 48 },
+      "h2": { "size": 28, "weight": "700", "tracking": -0.5, "line_height": 34 },
+      "h3": { "size": 20, "weight": "600", "tracking": -0.3, "line_height": 28 },
+      "body": { "size": 16, "weight": "400", "tracking": 0, "line_height": 24 },
+      "label": { "size": 14, "weight": "500", "tracking": 0.2, "line_height": 20 },
+      "micro": { "size": 12, "weight": "600", "tracking": 0.5, "text_transform": "uppercase" }
+    }
+  },
+  "spacing": {
+    "grid": 8,
+    "p_xs": 4,
+    "p_sm": 8,
+    "p_md": 16,
+    "p_lg": 24,
+    "p_xl": 32,
+    "touch_target_min": 44
+  },
+  "radii": {
+    "sm": 8,
+    "md": 12,
+    "lg": 16,
+    "xl": 24,
+    "pill": 9999
+  },
+  "components": {
+    "kpi_card": {
+      "background": "#141417",
+      "border": "1px solid rgba(255,255,255,0.08)",
+      "border_radius": 16,
+      "padding": 16,
+      "layout": "Column with top-left label (micro) and bottom-left large value (h2)."
+    },
+    "bank_card_visual": {
+      "background": "Linear gradient (135deg, #1C1C21 0%, #0A0A0C 100%)",
+      "border": "1px solid rgba(255,255,255,0.12)",
+      "border_radius": 20,
+      "padding": 24,
+      "shadow": "0px 10px 30px rgba(0,0,0,0.5)"
+    },
+    "msi_progress_bar": {
+      "track": "rgba(255,255,255,0.1)",
+      "fill": "#22C55E",
+      "height": 6,
+      "border_radius": 9999,
+      "text_layout": "Row: 'Mensualidad' (left), '3/12' (right)"
+    },
+    "expense_quick_chip": {
+      "height": 48,
+      "border_radius": 16,
+      "background": "#1C1C21",
+      "active_background": "rgba(255,255,255,0.15)",
+      "layout": "Row (Icon + Text), centered",
+      "font": "label",
+      "padding_horizontal": 16
+    },
+    "bottom_tab_bar": {
+      "background": "rgba(10, 10, 12, 0.9)",
+      "border_top": "1px solid rgba(255,255,255,0.05)",
+      "height": 80,
+      "active_tint": "#FFFFFF",
+      "inactive_tint": "#71717A",
+      "blur": "Yes (if supported by Expo BlurView, otherwise solid #0A0A0C)"
+    },
+    "form_modal": {
+      "background": "#141417",
+      "border_top_radius": 24,
+      "padding": 24,
+      "backdrop": "rgba(0,0,0,0.8)"
+    }
+  },
+  "screens": {
+    "Dashboard": {
+      "layout": "Top: Total Combined Limit & Balance Today (h1_balance). Middle: Financial Pie Chart using specific colors. Bottom: Horizontal scroll of KPI Cards (MSI Debt, Positive/Negative Projections).",
+      "spacing": "Heavy use of p_lg spacing between vertical sections."
+    },
+    "Tarjetas": {
+      "layout": "Vertical list of 'bank_card_visual' items. Floating Action Button (FAB) bottom right (+) to add new card. Each card shows: Alias, Bank, Limit, Cut Date, Pay Date.",
+      "currency_support": "MXN, USD, EUR badges top right of card."
+    },
+    "MSI": {
+      "layout": "List of active MSIs. Each item shows purchase name, total amount, and 'msi_progress_bar'. Grouped by card."
+    },
+    "Movimientos": {
+      "layout": "Segmented Control (Ingresos / Gastos). Fast access horizontal ScrollView for 'expense_quick_chip' (Comida, Servicios, Amazon/E-commerce, Transporte, Entretenimiento, Salud, +). Below: Vertical list of recent transactions."
+    },
+    "Alertas": {
+      "layout": "List of upcoming payments. Each item has a title (e.g. 'Faltan 3 días para corte'), amount, and a 'Pago Realizado' Switch to dismiss the alert cycle."
+    }
+  },
+  "iconography": {
+    "library": "@expo/vector-icons (Feather or Ionicons)",
+    "rules": "No emojis. Sharp, stroke-based icons. 24px default size."
+  },
+  "testing": {
+    "conventions": "Use testID in React Native instead of data-testid.",
+    "examples": {
+      "dashboard_pie": "testID='dashboard-pie-chart'",
+      "add_card_btn": "testID='add-card-button'",
+      "msi_progress": "testID='msi-progress-3-12'",
+      "expense_chip": "testID='expense-chip-comida'",
+      "alert_switch": "testID='alert-switch-paid'"
+    }
+  },
+  "instructions_to_main_agent": [
+    "This is a React Native Expo project. DO NOT use HTML elements (div, span). Use View, Text, ScrollView, TouchableOpacity.",
+    "All components must be configured for mobile touch (minimum touch target 44px).",
+    "For the Pie Chart, use a library like react-native-svg-charts, victory-native, or expo-chart-kit. Ensure exact colors specified in pie_chart are passed.",
+    "Do not implement generic Vercel/Stripe styles. Stick to the dark tactical theme: #0A0A0C backgrounds, 1px white/10 borders.",
+    "For currency formatting, use Intl.NumberFormat('es-MX', {style: 'currency', currency: 'MXN/USD/EUR'}).",
+    "Use expo-sqlite for data storage and expo-notifications for the alert cycles.",
+    "Ensure 'testID' attributes are applied to every interactive element and data container for testing."
+  ]
+}
