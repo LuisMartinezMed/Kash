@@ -16,6 +16,8 @@ const SCHEMA_STATEMENTS = [
     fecha_corte INTEGER NOT NULL DEFAULT 1,
     fecha_pago INTEGER NOT NULL DEFAULT 15,
     dias_alerta_previa INTEGER NOT NULL DEFAULT 3,
+    cashback_percent REAL NOT NULL DEFAULT 0,
+    cashback_pay_day INTEGER NOT NULL DEFAULT 1,
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
   )`,
   `CREATE TABLE IF NOT EXISTS msi_purchases (
@@ -85,6 +87,13 @@ async function initSchema(database: SQLite.SQLiteDatabase) {
   try { await database.execAsync('PRAGMA foreign_keys = ON'); } catch {}
   for (const sql of SCHEMA_STATEMENTS) {
     await database.execAsync(sql);
+  }
+  // Migrations for existing databases (idempotent via try/catch)
+  for (const alter of [
+    'ALTER TABLE cards ADD COLUMN cashback_percent REAL NOT NULL DEFAULT 0',
+    'ALTER TABLE cards ADD COLUMN cashback_pay_day INTEGER NOT NULL DEFAULT 1',
+  ]) {
+    try { await database.execAsync(alter); } catch {}
   }
 }
 

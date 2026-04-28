@@ -13,6 +13,7 @@ import { Field, ChipsSelect, PrimaryButton } from '../../src/components/FormCont
 
 export default function TarjetasScreen() {
   const { cards, expenses, msis, refresh } = useAppData();
+  const [editing, setEditing] = useState<Card | null>(null);
   const [showForm, setShowForm] = useState(false);
 
   const handleDelete = (card: Card) => {
@@ -27,6 +28,9 @@ export default function TarjetasScreen() {
     ]);
   };
 
+  const openCreate = () => { setEditing(null); setShowForm(true); };
+  const openEdit = (card: Card) => { setEditing(card); setShowForm(true); };
+
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <View style={styles.headerRow}>
@@ -34,7 +38,7 @@ export default function TarjetasScreen() {
           <Text style={styles.eyebrow}>MIS CUENTAS</Text>
           <Text style={styles.headerTitle}>Tarjetas</Text>
         </View>
-        <TouchableOpacity style={styles.addBtn} onPress={() => setShowForm(true)} testID="add-card-button">
+        <TouchableOpacity style={styles.addBtn} onPress={openCreate} testID="add-card-button">
           <Ionicons name="add" size={22} color="#000" />
         </TouchableOpacity>
       </View>
@@ -50,9 +54,15 @@ export default function TarjetasScreen() {
         {cards.map((card) => {
           const available = cardAvailableBalance(card, expenses, msis);
           return (
-            <View key={card.id} style={styles.card} testID={`card-item-${card.id}`}>
+            <TouchableOpacity
+              key={card.id}
+              style={styles.card}
+              onPress={() => openEdit(card)}
+              activeOpacity={0.85}
+              testID={`card-item-${card.id}`}
+            >
               <View style={styles.cardHeader}>
-                <View>
+                <View style={{ flex: 1 }}>
                   <Text style={styles.cardBank}>{card.banco}</Text>
                   <Text style={styles.cardAlias}>{card.apodo}</Text>
                 </View>
@@ -78,22 +88,27 @@ export default function TarjetasScreen() {
                 ) : (
                   <FooterChip icon="cash-outline" label="Cuenta de débito" />
                 )}
+                {card.cashback_percent > 0 && (
+                  <FooterChip icon="gift-outline" label={`${card.cashback_percent}% cashback`} />
+                )}
               </View>
 
               <TouchableOpacity
                 style={styles.deleteBtn}
                 onPress={() => handleDelete(card)}
                 testID={`delete-card-${card.id}`}
+                hitSlop={10}
               >
                 <Ionicons name="trash-outline" size={16} color={colors.danger} />
               </TouchableOpacity>
-            </View>
+            </TouchableOpacity>
           );
         })}
       </ScrollView>
 
       <CardForm
         visible={showForm}
+        editing={editing}
         onClose={() => setShowForm(false)}
         onSaved={async () => {
           setShowForm(false);
@@ -113,7 +128,7 @@ function FooterChip({ icon, label }: { icon: any; label: string }) {
   );
 }
 
-function CardForm({ visible, onClose, onSaved }: { visible: boolean; onClose: () => void; onSaved: () => void }) {
+function CardForm({ visible, editing, onClose, onSaved }: { visible: boolean; editing: Card | null; onClose: () => void; onSaved: () => void }) {
   const [apodo, setApodo] = useState('');
   const [banco, setBanco] = useState(BANK_OPTIONS[0]);
   const [tipo, setTipo] = useState<CardType>('credito');
@@ -122,12 +137,29 @@ function CardForm({ visible, onClose, onSaved }: { visible: boolean; onClose: ()
   const [fechaCorte, setFechaCorte] = useState('1');
   const [fechaPago, setFechaPago] = useState('15');
   const [diasAlerta, setDiasAlerta] = useState('3');
+  const [cashbackPercent, setCashbackPercent] = useState('0');
+  const [cashbackPayDay, setCashbackPayDay] = useState('1');
 
-  const reset = () => {
-    setApodo(''); setBanco(BANK_OPTIONS[0]); setTipo('credito');
-    setLimite(''); setMoneda('MXN'); setFechaCorte('1');
-    setFechaPago('15'); setDiasAlerta('3');
-  };
+  React.useEffect(() => {
+    if (!visible) return;
+    if (editing) {
+      setApodo(editing.apodo);
+      setBanco(editing.banco);
+      setTipo(editing.tipo);
+      setLimite(String(editing.tipo === 'credito' ? editing.limite : editing.saldo_inicial));
+      setMoneda(editing.moneda);
+      setFechaCorte(String(editing.fecha_corte));
+      setFechaPago(String(editing.fecha_pago));
+      setDiasAlerta(String(editing.dias_alerta_previa));
+      setCashbackPercent(String(editing.cashback_percent ?? 0));
+      setCashbackPayDay(String(editing.cashback_pay_day ?? 1));
+    } else {
+      setApodo(''); setBanco(BANK_OPTIONS[0]); setTipo('credito');
+      setLimite(''); setMoneda('MXN'); setFechaCorte('1');
+      setFechaPago('15'); setDiasAlerta('3');
+      setCashbackPercent('0'); setCashbackPayDay('1');
+    }
+  }, [visible, editing]);
 
   const onSubmit = async () => {
     if (!apodo.trim()) return Alert.alert('Falta apodo', 'Ingresa un apodo para la tarjeta.');
@@ -136,7 +168,9 @@ function CardForm({ visible, onClose, onSaved }: { visible: boolean; onClose: ()
     const fc = Math.min(31, Math.max(1, parseInt(fechaCorte, 10) || 1));
     const fp = Math.min(31, Math.max(1, parseInt(fechaPago, 10) || 1));
     const da = Math.max(0, parseInt(diasAlerta, 10) || 0);
-    await Q.createCard({
+    const cbp = Math.max(0, Math.min(100, parseFloat(cashbackPercent) || 0));
+    const cbd = Math.min(31, Math.max(1, parseInt(cashbackPayDay, 10) || 1));
+    const payload = {
       apodo: apodo.trim(),
       banco,
       tipo,
@@ -146,13 +180,19 @@ function CardForm({ visible, onClose, onSaved }: { visible: boolean; onClose: ()
       fecha_corte: fc,
       fecha_pago: fp,
       dias_alerta_previa: da,
-    });
-    reset();
+      cashback_percent: cbp,
+      cashback_pay_day: cbd,
+    };
+    if (editing) {
+      await Q.updateCard(editing.id, payload);
+    } else {
+      await Q.createCard(payload);
+    }
     onSaved();
   };
 
   return (
-    <ModalSheet visible={visible} onClose={onClose} title="Nueva tarjeta" testID="card-form-modal">
+    <ModalSheet visible={visible} onClose={onClose} title={editing ? 'Editar tarjeta' : 'Nueva tarjeta'} testID="card-form-modal">
       <Field label="Apodo" value={apodo} onChangeText={setApodo} placeholder="Ej. BBVA Oro" testID="input-apodo" />
       <ChipsSelect label="Banco" value={banco} options={BANK_OPTIONS as any} onChange={(v) => setBanco(v)} testID="chip-banco" />
       <ChipsSelect<CardType>
@@ -179,7 +219,9 @@ function CardForm({ visible, onClose, onSaved }: { visible: boolean; onClose: ()
           <Field label="Días de alerta previa" value={diasAlerta} onChangeText={setDiasAlerta} keyboardType="numeric" testID="input-dias-alerta" />
         </>
       )}
-      <PrimaryButton label="Guardar tarjeta" onPress={onSubmit} testID="submit-card" />
+      <Field label="Cashback (%)" value={cashbackPercent} onChangeText={setCashbackPercent} placeholder="0" keyboardType="decimal-pad" testID="input-cashback-percent" />
+      <Field label="Día de pago del cashback" value={cashbackPayDay} onChangeText={setCashbackPayDay} placeholder="1" keyboardType="numeric" testID="input-cashback-day" />
+      <PrimaryButton label={editing ? 'Guardar cambios' : 'Guardar tarjeta'} onPress={onSubmit} testID="submit-card" />
     </ModalSheet>
   );
 }

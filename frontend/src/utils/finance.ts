@@ -76,25 +76,41 @@ export function totalExpensesMonth(expenses: Expense[], year: number, month: num
 }
 
 /**
- * Project income for remaining of current month (sum of incomes whose pay date is from today onwards).
+ * Project income for remaining of current month.
+ * - mensual: pay once if pay day >= today
+ * - quincenal: two pay days (pay day and pay day+15 mod last day)
+ * - semanal: pay every 7 days starting from fecha_pago day-of-week; count remaining pay dates in month
+ * - diario: amount * remaining days of the month (including today)
  */
 export function projectedIncomeRemaining(incomes: Income[]): number {
   const now = new Date();
   const ny = now.getFullYear();
   const nm = now.getMonth() + 1;
   const today = now.getDate();
+  const lastDay = new Date(ny, nm, 0).getDate();
+  const remainingDays = lastDay - today + 1; // including today
   let total = 0;
   for (const inc of incomes) {
     const payDate = new Date(inc.fecha_pago);
+    if (isNaN(payDate.getTime())) continue;
     const payDay = payDate.getDate();
-    if (inc.frecuencia === 'mensual') {
-      if (payDay >= today) total += inc.monto;
-    } else {
-      // quincenal: assume two pay days per month, around payDay and payDay+15 (mod month length)
-      const lastDay = new Date(ny, nm, 0).getDate();
+    if (inc.frecuencia === 'diario') {
+      total += inc.monto * Math.max(0, remainingDays);
+    } else if (inc.frecuencia === 'semanal') {
+      const targetDow = payDate.getDay();
+      let count = 0;
+      for (let d = today; d <= lastDay; d++) {
+        const dow = new Date(ny, nm - 1, d).getDay();
+        if (dow === targetDow) count++;
+      }
+      total += inc.monto * count;
+    } else if (inc.frecuencia === 'quincenal') {
       const second = ((payDay + 15 - 1) % lastDay) + 1;
       if (payDay >= today) total += inc.monto;
       if (second >= today && second !== payDay) total += inc.monto;
+    } else {
+      // mensual
+      if (payDay >= today) total += inc.monto;
     }
   }
   return total;
@@ -115,6 +131,33 @@ export function totalMsiPendingDebt(msis: MsiPurchase[]): number {
   return msis.filter((m) => m.activa).reduce((s, m) => s + msiRemaining(m), 0);
 }
 
+/**
+ * Cashback earned from expenses in a given month, aggregated across all cards
+ * that have cashback_percent > 0.
+ */
+export function cashbackAccumulatedMonth(cards: Card[], expenses: Expense[], year: number, month: number): number {
+  const cardMap = new Map(cards.map((c) => [c.id, c]));
+  let total = 0;
+  for (const exp of expenses) {
+    const d = new Date(exp.fecha);
+    if (d.getFullYear() !== year || d.getMonth() + 1 !== month) continue;
+    if (!exp.card_id) continue;
+    const card = cardMap.get(exp.card_id);
+    if (!card || !card.cashback_percent || card.cashback_percent <= 0) continue;
+    total += exp.monto * (card.cashback_percent / 100);
+  }
+  return +total.toFixed(2);
+}
+
+/**
+ * Compute cashback for a single prospective expense given a card.
+ */
+export function cashbackForExpense(card: Card | undefined | null, amount: number): number {
+  if (!card || !card.cashback_percent || card.cashback_percent <= 0) return 0;
+  if (!amount || isNaN(amount)) return 0;
+  return +(amount * (card.cashback_percent / 100)).toFixed(2);
+}
+
 export interface DashboardSummary {
   combinedLimit: number;
   availableToday: number;
@@ -123,6 +166,7 @@ export interface DashboardSummary {
   projectedMsi: number;
   endOfMonthProjection: number;
   msiPendingDebt: number;
+  cashbackMonth: number;
 }
 
 export function buildDashboardSummary(
@@ -137,7 +181,8 @@ export function buildDashboardSummary(
   const combinedLimit = cardCombinedLimit(cards);
   const availableToday = totalAvailableToday(cards, expenses, msis);
   const expensesMonth = totalExpensesMonth(expenses, ny, nm);
-  const projectedIncome = projectedIncomeRemaining(incomes);
+  const cashbackMonth = cashbackAccumulatedMonth(cards, expenses, ny, nm);
+  const projectedIncome = projectedIncomeRemaining(incomes) + cashbackMonth;
   const projectedMsi = projectedMsiCargosRemaining(msis);
   const endOfMonthProjection = availableToday + projectedIncome - projectedMsi;
   const msiPendingDebt = totalMsiPendingDebt(msis);
@@ -150,6 +195,7 @@ export function buildDashboardSummary(
     projectedMsi,
     endOfMonthProjection,
     msiPendingDebt,
+    cashbackMonth,
   };
 }
 

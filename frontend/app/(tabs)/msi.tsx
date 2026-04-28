@@ -14,6 +14,7 @@ import { Field, ChipsSelect, PrimaryButton } from '../../src/components/FormCont
 export default function MsiScreen() {
   const { msis, cards, refresh } = useAppData();
   const [showForm, setShowForm] = useState(false);
+  const [editing, setEditing] = useState<MsiPurchase | null>(null);
 
   const handleDelete = (msi: MsiPurchase) => {
     Alert.alert('Eliminar MSI', `¿Eliminar "${msi.descripcion}"?`, [
@@ -27,6 +28,20 @@ export default function MsiScreen() {
     ]);
   };
 
+  const openCreate = () => {
+    if (cards.length === 0) {
+      Alert.alert('Sin tarjetas', 'Primero agrega una tarjeta para registrar MSI.');
+      return;
+    }
+    setEditing(null);
+    setShowForm(true);
+  };
+
+  const openEdit = (msi: MsiPurchase) => {
+    setEditing(msi);
+    setShowForm(true);
+  };
+
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <View style={styles.headerRow}>
@@ -36,13 +51,7 @@ export default function MsiScreen() {
         </View>
         <TouchableOpacity
           style={[styles.addBtn, cards.length === 0 && { opacity: 0.4 }]}
-          onPress={() => {
-            if (cards.length === 0) {
-              Alert.alert('Sin tarjetas', 'Primero agrega una tarjeta para registrar MSI.');
-              return;
-            }
-            setShowForm(true);
-          }}
+          onPress={openCreate}
           testID="add-msi-button"
           disabled={cards.length === 0}
         >
@@ -63,7 +72,13 @@ export default function MsiScreen() {
           const inst = Math.min(msi.meses, Math.max(0, msiCurrentInstallment(msi)));
           const progress = Math.min(1, msiPaidSoFar(msi) / msi.monto_total);
           return (
-            <View key={msi.id} style={styles.card} testID={`msi-item-${msi.id}`}>
+            <TouchableOpacity
+              key={msi.id}
+              style={styles.card}
+              onPress={() => openEdit(msi)}
+              activeOpacity={0.85}
+              testID={`msi-item-${msi.id}`}
+            >
               <View style={styles.rowBetween}>
                 <Text style={styles.title}>{msi.descripcion}</Text>
                 <TouchableOpacity onPress={() => handleDelete(msi)} testID={`delete-msi-${msi.id}`} hitSlop={8}>
@@ -102,13 +117,14 @@ export default function MsiScreen() {
                   <Text style={styles.inactiveBadgeText}>INACTIVA</Text>
                 </View>
               )}
-            </View>
+            </TouchableOpacity>
           );
         })}
       </ScrollView>
 
       <MsiForm
         visible={showForm}
+        editing={editing}
         onClose={() => setShowForm(false)}
         onSaved={async () => {
           setShowForm(false);
@@ -119,7 +135,7 @@ export default function MsiScreen() {
   );
 }
 
-function MsiForm({ visible, onClose, onSaved }: { visible: boolean; onClose: () => void; onSaved: () => void }) {
+function MsiForm({ visible, editing, onClose, onSaved }: { visible: boolean; editing: MsiPurchase | null; onClose: () => void; onSaved: () => void }) {
   const { cards } = useAppData();
   const [cardId, setCardId] = useState(cards[0]?.id || '');
   const [descripcion, setDescripcion] = useState('');
@@ -128,8 +144,21 @@ function MsiForm({ visible, onClose, onSaved }: { visible: boolean; onClose: () 
   const [mesInicio, setMesInicio] = useState(currentMonthYM());
 
   React.useEffect(() => {
-    if (!cardId && cards[0]) setCardId(cards[0].id);
-  }, [cards, cardId]);
+    if (!visible) return;
+    if (editing) {
+      setCardId(editing.card_id);
+      setDescripcion(editing.descripcion);
+      setMonto(String(editing.monto_total));
+      setMeses(String(editing.meses));
+      setMesInicio(editing.mes_inicio);
+    } else {
+      setCardId(cards[0]?.id || '');
+      setDescripcion('');
+      setMonto('');
+      setMeses('12');
+      setMesInicio(currentMonthYM());
+    }
+  }, [visible, editing, cards]);
 
   const onSubmit = async () => {
     if (!cardId) return Alert.alert('Sin tarjeta', 'Selecciona una tarjeta.');
@@ -139,13 +168,17 @@ function MsiForm({ visible, onClose, onSaved }: { visible: boolean; onClose: () 
     if (isNaN(m) || m <= 0) return Alert.alert('Monto inválido', 'Ingresa un monto válido.');
     if (isNaN(mm) || mm <= 0) return Alert.alert('Meses inválidos', 'Ingresa los meses.');
     if (!/^\d{4}-\d{2}$/.test(mesInicio)) return Alert.alert('Mes inválido', 'Formato YYYY-MM.');
-    await Q.createMsi({ card_id: cardId, descripcion: descripcion.trim(), monto_total: m, meses: mm, mes_inicio: mesInicio });
-    setDescripcion(''); setMonto(''); setMeses('12'); setMesInicio(currentMonthYM());
+    const payload = { card_id: cardId, descripcion: descripcion.trim(), monto_total: m, meses: mm, mes_inicio: mesInicio };
+    if (editing) {
+      await Q.updateMsi(editing.id, payload);
+    } else {
+      await Q.createMsi(payload);
+    }
     onSaved();
   };
 
   return (
-    <ModalSheet visible={visible} onClose={onClose} title="Nueva compra MSI" testID="msi-form-modal">
+    <ModalSheet visible={visible} onClose={onClose} title={editing ? 'Editar MSI' : 'Nueva compra MSI'} testID="msi-form-modal">
       <ChipsSelect
         label="Tarjeta"
         value={cardId}
@@ -172,7 +205,7 @@ function MsiForm({ visible, onClose, onSaved }: { visible: boolean; onClose: () 
           </Text>
         </View>
       )}
-      <PrimaryButton label="Guardar MSI" onPress={onSubmit} testID="submit-msi" />
+      <PrimaryButton label={editing ? 'Guardar cambios' : 'Guardar MSI'} onPress={onSubmit} testID="submit-msi" />
     </ModalSheet>
   );
 }

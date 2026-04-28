@@ -1,6 +1,6 @@
 export type Currency = 'MXN' | 'USD' | 'EUR';
 export type CardType = 'credito' | 'debito';
-export type Frequency = 'quincenal' | 'mensual';
+export type Frequency = 'diario' | 'semanal' | 'quincenal' | 'mensual';
 
 export interface Card {
   id: string;
@@ -13,6 +13,8 @@ export interface Card {
   fecha_corte: number;
   fecha_pago: number;
   dias_alerta_previa: number;
+  cashback_percent: number;
+  cashback_pay_day: number;
   created_at: string;
 }
 

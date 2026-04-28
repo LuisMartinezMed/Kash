@@ -19,9 +19,9 @@ export async function createCard(input: Omit<Card, 'id' | 'created_at'>): Promis
   const db = await getDb();
   const id = uid();
   await db.runAsync(
-    `INSERT INTO cards (id, apodo, banco, tipo, limite, saldo_inicial, moneda, fecha_corte, fecha_pago, dias_alerta_previa)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [id, input.apodo, input.banco, input.tipo, input.limite, input.saldo_inicial, input.moneda, input.fecha_corte, input.fecha_pago, input.dias_alerta_previa]
+    `INSERT INTO cards (id, apodo, banco, tipo, limite, saldo_inicial, moneda, fecha_corte, fecha_pago, dias_alerta_previa, cashback_percent, cashback_pay_day)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [id, input.apodo, input.banco, input.tipo, input.limite, input.saldo_inicial, input.moneda, input.fecha_corte, input.fecha_pago, input.dias_alerta_previa, input.cashback_percent, input.cashback_pay_day]
   );
   return (await getCard(id))!;
 }
@@ -68,6 +68,15 @@ export async function createMsi(input: { card_id: string; descripcion: string; m
   return r!;
 }
 
+export async function updateMsi(id: string, input: { card_id: string; descripcion: string; monto_total: number; meses: number; mes_inicio: string }): Promise<void> {
+  const db = await getDb();
+  const cargo_mensual = +(input.monto_total / input.meses).toFixed(2);
+  await db.runAsync(
+    `UPDATE msi_purchases SET card_id = ?, descripcion = ?, monto_total = ?, meses = ?, mes_inicio = ?, cargo_mensual = ? WHERE id = ?`,
+    [input.card_id, input.descripcion, input.monto_total, input.meses, input.mes_inicio, cargo_mensual, id]
+  );
+}
+
 export async function deleteMsi(id: string): Promise<void> {
   const db = await getDb();
   await db.runAsync('DELETE FROM msi_purchases WHERE id = ?', [id]);
@@ -93,6 +102,14 @@ export async function createIncome(input: Omit<Income, 'id' | 'created_at'>): Pr
   );
   const r = await db.getFirstAsync<Income>('SELECT * FROM incomes WHERE id = ?', [id]);
   return r!;
+}
+
+export async function updateIncome(id: string, input: Omit<Income, 'id' | 'created_at'>): Promise<void> {
+  const db = await getDb();
+  await db.runAsync(
+    `UPDATE incomes SET nombre = ?, monto = ?, fecha_pago = ?, frecuencia = ?, moneda = ? WHERE id = ?`,
+    [input.nombre, input.monto, input.fecha_pago, input.frecuencia, input.moneda, id]
+  );
 }
 
 export async function deleteIncome(id: string): Promise<void> {
@@ -150,6 +167,14 @@ export async function createExpense(input: Omit<Expense, 'id' | 'created_at'>): 
   );
   const r = await db.getFirstAsync<Expense>('SELECT * FROM expenses WHERE id = ?', [id]);
   return r!;
+}
+
+export async function updateExpense(id: string, input: Omit<Expense, 'id' | 'created_at'>): Promise<void> {
+  const db = await getDb();
+  await db.runAsync(
+    `UPDATE expenses SET card_id = ?, categoria_id = ?, monto = ?, moneda = ?, descripcion = ?, fecha = ? WHERE id = ?`,
+    [input.card_id, input.categoria_id, input.monto, input.moneda, input.descripcion ?? null, input.fecha, id]
+  );
 }
 
 export async function deleteExpense(id: string): Promise<void> {

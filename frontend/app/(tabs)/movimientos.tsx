@@ -5,7 +5,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAppData } from '../../src/context/AppDataContext';
 import { colors, radii, spacing, CURRENCIES } from '../../src/theme';
 import { formatCurrency, shortDate, todayISO } from '../../src/utils/format';
-import { Currency, Frequency } from '../../src/db/types';
+import { cashbackForExpense } from '../../src/utils/finance';
+import { Currency, Frequency, Expense, Income } from '../../src/db/types';
 import * as Q from '../../src/db/queries';
 import ModalSheet from '../../src/components/ModalSheet';
 import { Field, ChipsSelect, PrimaryButton } from '../../src/components/FormControls';
@@ -19,6 +20,13 @@ const ICON_OPTIONS = [
 ];
 const COLOR_OPTIONS = ['#22C55E', '#3B82F6', '#A855F7', '#EC4899', '#F59E0B', '#EF4444', '#14B8A6', '#FACC15'];
 
+const FREQ_LABEL: Record<Frequency, string> = {
+  diario: 'Diario',
+  semanal: 'Semanal',
+  quincenal: 'Quincenal',
+  mensual: 'Mensual',
+};
+
 export default function MovimientosScreen() {
   const { expenses, incomes, categories, cards, refresh } = useAppData();
   const [tab, setTab] = useState<Tab>('gastos');
@@ -26,12 +34,15 @@ export default function MovimientosScreen() {
   const [showIncome, setShowIncome] = useState(false);
   const [showCategory, setShowCategory] = useState(false);
   const [presetCategoryId, setPresetCategoryId] = useState<string | null>(null);
+  const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
+  const [editingIncome, setEditingIncome] = useState<Income | null>(null);
 
   const onQuickExpense = (categoryId: string) => {
     if (cards.length === 0) {
       Alert.alert('Sin tarjetas', 'Agrega una tarjeta primero.');
       return;
     }
+    setEditingExpense(null);
     setPresetCategoryId(categoryId);
     setShowExpense(true);
   };
@@ -80,6 +91,7 @@ export default function MovimientosScreen() {
             <TouchableOpacity
               onPress={() => {
                 if (cards.length === 0) return Alert.alert('Sin tarjetas', 'Agrega una tarjeta primero.');
+                setEditingExpense(null);
                 setPresetCategoryId(null);
                 setShowExpense(true);
               }}
@@ -101,7 +113,13 @@ export default function MovimientosScreen() {
             const cat = categories.find((c) => c.id === exp.categoria_id);
             const card = cards.find((c) => c.id === exp.card_id);
             return (
-              <View key={exp.id} style={styles.row} testID={`expense-item-${exp.id}`}>
+              <TouchableOpacity
+                key={exp.id}
+                style={styles.row}
+                onPress={() => { setEditingExpense(exp); setPresetCategoryId(null); setShowExpense(true); }}
+                activeOpacity={0.8}
+                testID={`expense-item-${exp.id}`}
+              >
                 <View style={[styles.rowIcon, { backgroundColor: `${cat?.color || '#4B5563'}22` }]}>
                   <Ionicons name={(cat?.icono as any) || 'pricetag-outline'} size={18} color={cat?.color || colors.textSecondary} />
                 </View>
@@ -122,11 +140,12 @@ export default function MovimientosScreen() {
                       await refresh();
                     }}
                     testID={`delete-expense-${exp.id}`}
+                    hitSlop={10}
                   >
                     <Ionicons name="trash-outline" size={14} color={colors.textTertiary} />
                   </TouchableOpacity>
                 </View>
-              </View>
+              </TouchableOpacity>
             );
           })}
         </ScrollView>
@@ -134,7 +153,11 @@ export default function MovimientosScreen() {
         <ScrollView contentContainerStyle={styles.list} testID="incomes-screen">
           <View style={styles.rowBetween}>
             <Text style={styles.sectionTitle}>Ingresos fijos</Text>
-            <TouchableOpacity onPress={() => setShowIncome(true)} testID="add-income-button" style={styles.smallAdd}>
+            <TouchableOpacity
+              onPress={() => { setEditingIncome(null); setShowIncome(true); }}
+              testID="add-income-button"
+              style={styles.smallAdd}
+            >
               <Ionicons name="add" size={16} color="#000" />
               <Text style={styles.smallAddText}>Nuevo ingreso</Text>
             </TouchableOpacity>
@@ -148,14 +171,20 @@ export default function MovimientosScreen() {
             </View>
           )}
           {incomes.map((inc) => (
-            <View key={inc.id} style={styles.row} testID={`income-item-${inc.id}`}>
+            <TouchableOpacity
+              key={inc.id}
+              style={styles.row}
+              onPress={() => { setEditingIncome(inc); setShowIncome(true); }}
+              activeOpacity={0.8}
+              testID={`income-item-${inc.id}`}
+            >
               <View style={[styles.rowIcon, { backgroundColor: `${colors.success}22` }]}>
                 <Ionicons name="wallet-outline" size={18} color={colors.success} />
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.rowTitle}>{inc.nombre}</Text>
                 <Text style={styles.rowSubtitle}>
-                  {inc.frecuencia === 'mensual' ? 'Mensual' : 'Quincenal'} · {shortDate(inc.fecha_pago)}
+                  {FREQ_LABEL[inc.frecuencia]} · {shortDate(inc.fecha_pago)}
                 </Text>
               </View>
               <View style={{ alignItems: 'flex-end' }}>
@@ -168,17 +197,19 @@ export default function MovimientosScreen() {
                     await refresh();
                   }}
                   testID={`delete-income-${inc.id}`}
+                  hitSlop={10}
                 >
                   <Ionicons name="trash-outline" size={14} color={colors.textTertiary} />
                 </TouchableOpacity>
               </View>
-            </View>
+            </TouchableOpacity>
           ))}
         </ScrollView>
       )}
 
       <ExpenseForm
         visible={showExpense}
+        editing={editingExpense}
         presetCategoryId={presetCategoryId}
         onClose={() => setShowExpense(false)}
         onSaved={async () => {
@@ -188,6 +219,7 @@ export default function MovimientosScreen() {
       />
       <IncomeForm
         visible={showIncome}
+        editing={editingIncome}
         onClose={() => setShowIncome(false)}
         onSaved={async () => {
           setShowIncome(false);
@@ -214,7 +246,7 @@ function SegBtn({ label, active, onPress, testID }: { label: string; active: boo
   );
 }
 
-function ExpenseForm({ visible, onClose, onSaved, presetCategoryId }: { visible: boolean; onClose: () => void; onSaved: () => void; presetCategoryId: string | null }) {
+function ExpenseForm({ visible, editing, onClose, onSaved, presetCategoryId }: { visible: boolean; editing: Expense | null; onClose: () => void; onSaved: () => void; presetCategoryId: string | null }) {
   const { cards, categories } = useAppData();
   const [cardId, setCardId] = useState(cards[0]?.id || '');
   const [categoriaId, setCategoriaId] = useState(presetCategoryId || categories[0]?.id || '');
@@ -224,7 +256,15 @@ function ExpenseForm({ visible, onClose, onSaved, presetCategoryId }: { visible:
   const [fecha, setFecha] = useState(todayISO());
 
   React.useEffect(() => {
-    if (visible) {
+    if (!visible) return;
+    if (editing) {
+      setCardId(editing.card_id || cards[0]?.id || '');
+      setCategoriaId(editing.categoria_id || categories[0]?.id || '');
+      setMonto(String(editing.monto));
+      setMoneda(editing.moneda);
+      setDescripcion(editing.descripcion || '');
+      setFecha(editing.fecha);
+    } else {
       setCardId(cards[0]?.id || '');
       setCategoriaId(presetCategoryId || categories[0]?.id || '');
       setMoneda(cards[0]?.moneda || 'MXN');
@@ -232,26 +272,35 @@ function ExpenseForm({ visible, onClose, onSaved, presetCategoryId }: { visible:
       setDescripcion('');
       setFecha(todayISO());
     }
-  }, [visible, presetCategoryId, cards, categories]);
+  }, [visible, editing, presetCategoryId, cards, categories]);
+
+  const selectedCard = cards.find((c) => c.id === cardId);
+  const amountNum = parseFloat(monto);
+  const cashbackPreview = cashbackForExpense(selectedCard, isNaN(amountNum) ? 0 : amountNum);
 
   const onSubmit = async () => {
     const m = parseFloat(monto);
     if (isNaN(m) || m <= 0) return Alert.alert('Monto inválido', 'Ingresa un monto válido.');
     if (!cardId) return Alert.alert('Sin tarjeta', 'Selecciona una tarjeta.');
     if (!categoriaId) return Alert.alert('Sin categoría', 'Selecciona una categoría.');
-    await Q.createExpense({
+    const payload = {
       card_id: cardId,
       categoria_id: categoriaId,
       monto: m,
       moneda,
       descripcion: descripcion.trim() || null,
       fecha,
-    });
+    };
+    if (editing) {
+      await Q.updateExpense(editing.id, payload);
+    } else {
+      await Q.createExpense(payload);
+    }
     onSaved();
   };
 
   return (
-    <ModalSheet visible={visible} onClose={onClose} title="Nuevo gasto" testID="expense-form-modal">
+    <ModalSheet visible={visible} onClose={onClose} title={editing ? 'Editar gasto' : 'Nuevo gasto'} testID="expense-form-modal">
       <Field label="Monto" value={monto} onChangeText={setMonto} placeholder="0.00" keyboardType="decimal-pad" testID="input-expense-monto" />
       <ChipsSelect<Currency> label="Moneda" value={moneda} options={CURRENCIES} onChange={setMoneda} testID="chip-expense-moneda" />
       <ChipsSelect
@@ -262,6 +311,14 @@ function ExpenseForm({ visible, onClose, onSaved, presetCategoryId }: { visible:
         renderLabel={(id) => cards.find((c) => c.id === id)?.apodo || id}
         testID="chip-expense-card"
       />
+      {cashbackPreview > 0 && (
+        <View style={styles.cashbackHint} testID="expense-cashback-preview">
+          <Ionicons name="gift-outline" size={16} color={colors.success} />
+          <Text style={styles.cashbackHintText}>
+            Recibirás <Text style={styles.cashbackAmount}>{formatCurrency(cashbackPreview, moneda)}</Text> de cashback por esta transacción
+          </Text>
+        </View>
+      )}
       <ChipsSelect
         label="Categoría"
         value={categoriaId}
@@ -272,12 +329,12 @@ function ExpenseForm({ visible, onClose, onSaved, presetCategoryId }: { visible:
       />
       <Field label="Descripción (opcional)" value={descripcion} onChangeText={setDescripcion} testID="input-expense-desc" />
       <Field label="Fecha (YYYY-MM-DD)" value={fecha} onChangeText={setFecha} testID="input-expense-fecha" />
-      <PrimaryButton label="Guardar gasto" onPress={onSubmit} testID="submit-expense" />
+      <PrimaryButton label={editing ? 'Guardar cambios' : 'Guardar gasto'} onPress={onSubmit} testID="submit-expense" />
     </ModalSheet>
   );
 }
 
-function IncomeForm({ visible, onClose, onSaved }: { visible: boolean; onClose: () => void; onSaved: () => void }) {
+function IncomeForm({ visible, editing, onClose, onSaved }: { visible: boolean; editing: Income | null; onClose: () => void; onSaved: () => void }) {
   const [nombre, setNombre] = useState('');
   const [monto, setMonto] = useState('');
   const [moneda, setMoneda] = useState<Currency>('MXN');
@@ -285,34 +342,46 @@ function IncomeForm({ visible, onClose, onSaved }: { visible: boolean; onClose: 
   const [frecuencia, setFrecuencia] = useState<Frequency>('mensual');
 
   React.useEffect(() => {
-    if (visible) {
+    if (!visible) return;
+    if (editing) {
+      setNombre(editing.nombre);
+      setMonto(String(editing.monto));
+      setMoneda(editing.moneda);
+      setFecha(editing.fecha_pago);
+      setFrecuencia(editing.frecuencia);
+    } else {
       setNombre(''); setMonto(''); setMoneda('MXN'); setFecha(todayISO()); setFrecuencia('mensual');
     }
-  }, [visible]);
+  }, [visible, editing]);
 
   const onSubmit = async () => {
     if (!nombre.trim()) return Alert.alert('Falta nombre', 'Ingresa el nombre del ingreso.');
     const m = parseFloat(monto);
     if (isNaN(m) || m <= 0) return Alert.alert('Monto inválido', 'Ingresa un monto válido.');
-    await Q.createIncome({ nombre: nombre.trim(), monto: m, moneda, fecha_pago: fecha, frecuencia });
+    const payload = { nombre: nombre.trim(), monto: m, moneda, fecha_pago: fecha, frecuencia };
+    if (editing) {
+      await Q.updateIncome(editing.id, payload);
+    } else {
+      await Q.createIncome(payload);
+    }
     onSaved();
   };
 
   return (
-    <ModalSheet visible={visible} onClose={onClose} title="Nuevo ingreso fijo" testID="income-form-modal">
+    <ModalSheet visible={visible} onClose={onClose} title={editing ? 'Editar ingreso' : 'Nuevo ingreso fijo'} testID="income-form-modal">
       <Field label="Nombre" value={nombre} onChangeText={setNombre} placeholder="Ej. Nómina" testID="input-income-nombre" />
       <Field label="Monto" value={monto} onChangeText={setMonto} placeholder="0.00" keyboardType="decimal-pad" testID="input-income-monto" />
       <ChipsSelect<Currency> label="Moneda" value={moneda} options={CURRENCIES} onChange={setMoneda} testID="chip-income-moneda" />
-      <Field label="Fecha de pago (YYYY-MM-DD)" value={fecha} onChangeText={setFecha} testID="input-income-fecha" />
+      <Field label="Fecha de referencia (YYYY-MM-DD)" value={fecha} onChangeText={setFecha} testID="input-income-fecha" />
       <ChipsSelect<Frequency>
         label="Frecuencia"
         value={frecuencia}
-        options={['quincenal', 'mensual']}
+        options={['diario', 'semanal', 'quincenal', 'mensual']}
         onChange={setFrecuencia}
-        renderLabel={(v) => (v === 'mensual' ? 'Mensual' : 'Quincenal')}
+        renderLabel={(v) => FREQ_LABEL[v]}
         testID="chip-income-frecuencia"
       />
-      <PrimaryButton label="Guardar ingreso" onPress={onSubmit} testID="submit-income" />
+      <PrimaryButton label={editing ? 'Guardar cambios' : 'Guardar ingreso'} onPress={onSubmit} testID="submit-income" />
     </ModalSheet>
   );
 }
@@ -428,4 +497,12 @@ const styles = StyleSheet.create({
     borderWidth: 2, borderColor: 'transparent',
   },
   colorPickActive: { borderColor: colors.textPrimary },
+  cashbackHint: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    backgroundColor: 'rgba(34, 197, 94, 0.1)',
+    borderWidth: 1, borderColor: 'rgba(34, 197, 94, 0.3)',
+    borderRadius: radii.md, padding: spacing.sm, marginBottom: spacing.md,
+  },
+  cashbackHintText: { color: colors.textSecondary, fontSize: 12, flex: 1 },
+  cashbackAmount: { color: colors.success, fontWeight: '700' },
 });

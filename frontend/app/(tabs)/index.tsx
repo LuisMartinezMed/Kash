@@ -108,6 +108,16 @@ export default function Dashboard() {
             testID="dashboard-projected-msi"
           />
         </View>
+        <View style={styles.kpiRow}>
+          <KpiTile
+            label="Cashback acumulado"
+            value={formatCurrency(summary.cashbackMonth, primaryCurrency)}
+            icon="gift-outline"
+            color={colors.success}
+            testID="dashboard-cashback"
+          />
+          <View style={{ flex: 1 }} />
+        </View>
 
         {cards.length === 0 && (
           <View style={styles.emptyCard} testID="dashboard-empty-state">
