@@ -7,7 +7,6 @@ import { colors, radii, spacing } from '../../src/theme';
 import { formatCurrency, shortDate } from '../../src/utils/format';
 import { cycleKeyForCard, nextPayDate, msiCargoForMonth } from '../../src/utils/finance';
 import { cancelCardAlerts, reschedulePending, ensurePermissions } from '../../src/utils/notifications';
-import * as Q from '../../src/db/queries';
 
 export default function AlertasScreen() {
   const { cards, msis, cycles, refresh } = useAppData();

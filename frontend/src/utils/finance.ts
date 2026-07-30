@@ -1,4 +1,4 @@
-import { Card, MsiPurchase, Income, Expense, Currency } from '../db/types';
+import { Card, MsiPurchase, Income, Expense } from '../db/types';
 
 /**
  * Calculate the monthly cargo for an MSI in the current month.
@@ -45,7 +45,6 @@ export function msiRemaining(msi: MsiPurchase): number {
 export function cardAvailableBalance(card: Card, expenses: Expense[], msis: MsiPurchase[]): number {
   const cardExpenses = expenses.filter((e) => e.card_id === card.id).reduce((s, e) => s + e.monto, 0);
   const cardMsis = msis.filter((m) => m.card_id === card.id);
-  const now = new Date();
   // Sum of MSI charges already accrued (current month installment)
   const msiAccrued = cardMsis.reduce((s, m) => {
     const inst = msiCurrentInstallment(m);
