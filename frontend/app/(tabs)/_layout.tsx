@@ -27,7 +27,7 @@ export default function TabsLayout() {
         options={{
           title: 'Inicio',
           tabBarIcon: ({ color, size }) => <Ionicons name="grid-outline" size={size} color={color} />,
-          tabBarTestID: 'tab-dashboard',
+          tabBarButtonTestID: 'tab-dashboard',
         }}
       />
       <Tabs.Screen
@@ -35,7 +35,7 @@ export default function TabsLayout() {
         options={{
           title: 'Tarjetas',
           tabBarIcon: ({ color, size }) => <Ionicons name="card-outline" size={size} color={color} />,
-          tabBarTestID: 'tab-tarjetas',
+          tabBarButtonTestID: 'tab-tarjetas',
         }}
       />
       <Tabs.Screen
@@ -43,7 +43,7 @@ export default function TabsLayout() {
         options={{
           title: 'MSI',
           tabBarIcon: ({ color, size }) => <Ionicons name="layers-outline" size={size} color={color} />,
-          tabBarTestID: 'tab-msi',
+          tabBarButtonTestID: 'tab-msi',
         }}
       />
       <Tabs.Screen
@@ -51,7 +51,7 @@ export default function TabsLayout() {
         options={{
           title: 'Movimientos',
           tabBarIcon: ({ color, size }) => <Ionicons name="swap-vertical-outline" size={size} color={color} />,
-          tabBarTestID: 'tab-movimientos',
+          tabBarButtonTestID: 'tab-movimientos',
         }}
       />
       <Tabs.Screen
@@ -59,7 +59,7 @@ export default function TabsLayout() {
         options={{
           title: 'Alertas',
           tabBarIcon: ({ color, size }) => <Ionicons name="notifications-outline" size={size} color={color} />,
-          tabBarTestID: 'tab-alertas',
+          tabBarButtonTestID: 'tab-alertas',
         }}
       />
     </Tabs>
